@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Office temporary files
+~$*.xlsx
+~$*.docx
+~$*.pptx
+
+# Stata temporary files
+*.smcl
+*~
+*.bak
+
+# LaTeX build artifacts (keep the final PDF in report/)
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Python (in case of future scripts)
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
