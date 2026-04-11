@@ -8,6 +8,9 @@
 ~$*.docx
 ~$*.pptx
 
+# Original exercise prompt (not redistributed; see README for task summary)
+data_exercise_2026.docx
+
 # Stata temporary files
 *.smcl
 *~

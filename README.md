@@ -7,7 +7,23 @@ Analysis of 2012 Quarterly Census of Employment and Wages (QCEW) county-level da
 
 ## Project Overview
 
-This project transforms raw administrative employment and wage data into a coherent set of descriptive and regression-based findings at the state and county levels. It covers:
+This project transforms raw administrative employment and wage data into a coherent set of descriptive and regression-based findings at the state and county levels. It was completed as a take-home data exercise to demonstrate the ability to **find, clean, and analyze raw public data** and communicate findings clearly.
+
+## Task Description
+
+The exercise consists of seven tasks. The original prompt is not redistributed in this repository for academic integrity reasons (see note below). A paraphrased summary:
+
+1. **Task 1** — Locate and download the 2012 QCEW NAICS-based county high-level data files from the U.S. Bureau of Labor Statistics. Describe the structure of the annual file (`allhlcn12`) in plain language.
+2. **Task 2** — Locate and download the U.S. Census Bureau resident population estimates (2010–2018) covering states and national totals.
+3. **Task 3** — Report the states with the highest and lowest share of total annual average employment in the federal government, along with the mean, median, and standard deviation. Exclude the District of Columbia.
+4. **Task 4** — Construct a county-level dataset with the mean of average weekly wage in "Financial Activities" and "Professional and Business Services" industries, restricted to counties with non-zero wages in both. Report the top 5 counties.
+5. **Task 5** — Create a graph showing the state-level relationship between the share of population employed in "Education and Health Services" and annual average pay in that sector.
+6. **Task 6** — Use a regression-based approach to describe the relationship between annual average pay, sector employment share, and state population size, using the data from Task 5.
+7. **Task 7** — Identify Massachusetts counties where total wages paid in Q1 2012, on an annualized basis (Q1 × 4), exceed annual total wages. Exclude "Unknown Or Undefined, Massachusetts" and use all industries under Total Covered ownership.
+
+> **Note on the original prompt.** The original `data_exercise_2026.docx` file distributed by the hiring institution is intentionally **not** included in this public repository. The summary above is a paraphrased description of what was asked. This is to respect the confidentiality of the exercise and to avoid exposing the exact prompt to future applicants. If you are an authorized reviewer and would like to see the unredacted submission including the original prompt, please contact me directly.
+
+## Analysis Summary
 
 - **Q3** — State-level federal employment shares (50 states, excluding DC)
 - **Q4** — County-level mean weekly wage in Financial Activities and Professional & Business Services
@@ -46,6 +62,8 @@ QCEW_Population_Analysis/
 │   └── Results_Report_Data_Exercise_2026.pdf
 └── README.md                    # This file
 ```
+
+Note: `data_exercise_2026.docx` (the original task prompt) is intentionally excluded from this repository.
 
 ## How to Replicate
 
