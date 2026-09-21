@@ -111,7 +111,7 @@ keep if industry == "Total, all industries"
 drop if area_name == "Unknown Or Undefined, Massachusetts"
 
 * Annualize Q1 wages
-gen double q1_wages_annualized = 4 * q1_wages
+gen q1_wages_annualized = 4 * q1_wages
 keep area_code area_name q1_wages q1_wages_annualized
 
 * Save clean base Q1 dataset
