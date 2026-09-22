@@ -409,7 +409,7 @@ twoway ///
          size(vsmall) color(gs6)) ///
     name(edhealth_scatter, replace)
 
-	* 5. Export Q5 Graph (to the "output" folder)
+* 5. Export Q5 Graph (to the "output" folder)
 graph export "output/Q5_state_edhealth_pay_popshare_2012.png", replace width(2000)
 
 * 6. Export Q5 Cleaned_data (to the "output" folder)
@@ -425,8 +425,8 @@ export excel using "cleaned_data/Q5_state_edhealth_pay_popshare_2012.xlsx", firs
 **************
 
 
-* Continuously running from Q5 data
-* (Before running the code for Question 6, please run the code for Problem 5 first)
+* Uses the dataset saved at the end of Question 5
+* (run Question 5 first)
 use "cleaned_data/Q5_state_edhealth_pay_popshare_2012.dta", clear
 
 gen ln_pop2012 = ln(pop2012)
@@ -440,13 +440,13 @@ reg edhealth_pay edhealth_pop_share_pct, vce(robust)
 * Control variable: State population size
 reg edhealth_pay edhealth_pop_share_pct ln_pop2012, vce(robust)
 
-* 3. Interaction effect (add share_x_lnpop)
+* 3. Interaction effect (add pct_x_lnpop)
 gen pct_x_lnpop = edhealth_pop_share_pct * ln_pop2012
 reg edhealth_pay edhealth_pop_share_pct ln_pop2012 pct_x_lnpop, vce(robust)
 
 ** 3.1
-* The interaction term will be highly correlated with the original variable.
-* First, center the variable, then calculate the interaction term.
+* Centering leaves the interaction coefficient and R2 unchanged (Table A, cols 3-4);
+* it makes each main effect the slope at the other variable's sample mean.
 summ edhealth_pop_share_pct
 gen c_edhealth_pop_pct = edhealth_pop_share_pct - r(mean)
 
@@ -458,8 +458,8 @@ reg edhealth_pay c_edhealth_pop_pct c_lnpop2012 cpct_x_clnpop2012, vce(robust)
 
 * 4. Robustness check: Exclude DC
 * DC is an extreme outlier (employment share ~16% vs. next highest ~10%).
-* Re-estimate the simple and multiple models excluding DC to verify
-* that results are not driven by this single observation.
+* Re-estimate the simple and multiple models without DC, whose leverage in the
+* simple model is 0.50 (next highest 0.07); without it the simple slope is not significant.
 
 preserve
 drop if area_name == "District of Columbia"
@@ -488,7 +488,7 @@ eststo M3
 quietly reg edhealth_pay c_edhealth_pop_pct c_lnpop2012 cpct_x_clnpop2012, vce(robust)
 eststo M4
 
-* Store robustness models (excluding DC, 50 observations) [NEW]
+* Store robustness models (excluding DC, 50 observations)
 preserve
 drop if area_name == "District of Columbia"
 
@@ -500,24 +500,24 @@ eststo M6
 
 restore
 
-* Panel A: Main results (same as original)
+* Table A: main results
 esttab M1 M2 M3 M4 using "output/Q6_Regression_Results.rtf", replace ///
     title("Table A: Regression Results -- All States plus DC (N=51)") ///
     mtitles("Simple" "Multiple" "Interaction" "Centered Interaction") ///
-    b(2) se(2) ///
+    b(2) se(2) nonotes ///
     star(* 0.10 ** 0.05 *** 0.01) ///
-    r2(3) ///
-    compress ///
+    r2(3) rename(cpct_x_clnpop2012 pct_x_lnpop) ///
+    compress coeflabels(edhealth_pop_share_pct "Ed/health share (%)" ln_pop2012 "ln(population)" pct_x_lnpop "Share x ln(pop)" c_edhealth_pop_pct "Share, centered" c_lnpop2012 "ln(pop), centered" _cons "Constant") ///
     addnotes("Robust standard errors in parentheses. *** p<0.01, ** p<0.05, * p<0.1")
 
-* Panel B: Robustness check excluding DC [NEW]
+* Table B: robustness check excluding DC
 esttab M5 M6 using "output/Q6_Robustness_ExclDC.rtf", replace ///
     title("Table B: Robustness Check -- Excluding DC (N=50)") ///
     mtitles("Simple (excl. DC)" "Multiple (excl. DC)") ///
-    b(2) se(2) ///
+    b(2) se(2) nonotes ///
     star(* 0.10 ** 0.05 *** 0.01) ///
     r2(3) ///
-    compress ///
+    compress coeflabels(edhealth_pop_share_pct "Ed/health share (%)" ln_pop2012 "ln(population)" _cons "Constant") ///
     addnotes("Robust standard errors in parentheses. *** p<0.01, ** p<0.05, * p<0.1" ///
              "DC excluded as an extreme outlier (employment share ~16%).")
 

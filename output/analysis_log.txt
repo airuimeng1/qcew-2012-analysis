@@ -1,8 +1,9 @@
------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
       name:  analysis_log
-       log:  /Users/ray/Desktop/QCEW_Population_Analysis/output/analysis_log.txt
+       log:  /Users/ray/Desktop/QCEW_Population_Analysis/output/analysis_log.tx
+> t
   log type:  text
- opened on:  26 Mar 2026, 21:07:47
+ opened on:  21 Sep 2026, 22:15:04
 
 . version 19.5
 
@@ -20,8 +21,8 @@
 . * ----------------------------------------------------------------------
 . * 1.1 Prepare Base Dataset: QCEW Annual 2012
 . * ----------------------------------------------------------------------
-. import excel "raw_data/2012_all_county_high_level/allhlcn12.xlsx", sheet("US_St_Cn_MSA"
-> ) firstrow clear
+. import excel "raw_data/2012_all_county_high_level/allhlcn12.xlsx", sheet("US_
+> St_Cn_MSA") firstrow clear
 (20 vars, 62,555 obs)
 
 . 
@@ -76,7 +77,8 @@ file cleaned_data/base_qcew_annual.dta saved
 . * ----------------------------------------------------------------------
 . * 1.2 Prepare Base Dataset: Census Population 2012
 . * ----------------------------------------------------------------------
-. import excel "raw_data/nst-est2018-01.xlsx", sheet("NST01") cellrange(A10:F60) clear
+. import excel "raw_data/nst-est2018-01.xlsx", sheet("NST01") cellrange(A10:F60
+> ) clear
 (6 vars, 51 obs)
 
 . 
@@ -91,7 +93,8 @@ file cleaned_data/base_qcew_annual.dta saved
 . * Remove leading dots from state names
 . gen state_name = state_name_raw
 
-. replace state_name = substr(state_name, 2, .) if substr(state_name, 1, 1) == "."
+. replace state_name = substr(state_name, 2, .) if substr(state_name, 1, 1) == 
+> "."
 (51 real changes made)
 
 . drop state_name_raw
@@ -110,8 +113,8 @@ file cleaned_data/base_population.dta saved
 . * ----------------------------------------------------------------------
 . * 1.3 Prepare Base Dataset: QCEW Q1 2012 (Massachusetts Only)
 . * ----------------------------------------------------------------------
-. import excel "raw_data/2012_all_county_high_level/allhlcn121.xlsx", sheet("US_St_Cn_MSA
-> ") firstrow clear
+. import excel "raw_data/2012_all_county_high_level/allhlcn121.xlsx", sheet("US
+> _St_Cn_MSA") firstrow clear
 (21 vars, 62,241 obs)
 
 . 
@@ -158,10 +161,278 @@ file cleaned_data/base_population.dta saved
 file cleaned_data/base_qcew_q1.dta saved
 
 . 
-end of do-file
+. 
+. 
+. 
+. 
+. 
+. * ======================================================================
+. * PART 2: TASK ANALYSIS
+. * ======================================================================
+. 
+. 
+. 
+. 
+. **************
+. * Question 3 *
+. **************
+. use "cleaned_data/base_qcew_annual.dta", clear
 
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
+. 
+. * 1. Filter for State-level data and aggregate "Total employment, all industr
+> ies"
+. keep if area_type == "State" & naics_code == 10
+(62,300 observations deleted)
 
+. * naics_code == 10 corresponding to "Total, all industries"
+. 
+. * 2. Exclude the District of Columbia
+. drop if area_name == "District of Columbia"
+(5 observations deleted)
+
+. 
+. * 3. Keep only the "Total Covered" and "Federal Government" rows
+. keep if ownership == "Total Covered" | ownership == "Federal Government"
+(150 observations deleted)
+
+. 
+. 
+. * 4. Rename ownership categories to make reshaping simpler
+. replace ownership = "Total" if ownership == "Total Covered"
+(50 real changes made)
+
+. replace ownership = "Federal" if ownership == "Federal Government"
+(50 real changes made)
+
+. 
+. keep area_code area_name state_code state_name ownership avg_employment
+
+. 
+. * 5. Reshape and calculate share
+. reshape wide avg_employment, i(area_code) j(ownership) string
+(j = Federal Total)
+
+Data                               Long   ->   Wide
+-----------------------------------------------------------------------------
+Number of observations              100   ->   50          
+Number of variables                   6   ->   6           
+j variable (2 values)         ownership   ->   (dropped)
+xij variables:
+                         avg_employment   ->   avg_employmentFederal avg_employ
+> mentTotal
+-----------------------------------------------------------------------------
+
+. gen federal_share = avg_employmentFederal / avg_employmentTotal
+
+. 
+. * After filtering Q3 data:
+. assert _N == 50  // 50 states (excluding DC)
+
+. 
+. * 6. Display highest and lowest share
+. gsort -federal_share
+
+. list area_code area_name state_code state_name federal_share in 1
+
+     +-------------------------------------------------------------------+
+     | area_c~e               area_name   state~de   state~me   federa~e |
+     |-------------------------------------------------------------------|
+  1. |    24000   Maryland -- Statewide         24   Maryland   .0582648 |
+     +-------------------------------------------------------------------+
+
+. 
+. gsort federal_share
+
+. list area_code area_name state_code state_name federal_share in 1
+
+     +---------------------------------------------------------------------+
+     | area_c~e                area_name   state~de   state_n~e   federa~e |
+     |---------------------------------------------------------------------|
+  1. |    55000   Wisconsin -- Statewide         55   Wisconsin   .0107635 |
+     +---------------------------------------------------------------------+
+
+. 
+. * 7. Descriptive statistics
+. summarize federal_share, detail
+
+                        federal_share
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     .0107635       .0107635
+ 5%     .0119414       .0108321
+10%     .0126785       .0119414       Obs                  50
+25%     .0155017       .0119467       Sum of wgt.          50
+
+50%     .0194494                      Mean           .0229299
+                        Largest       Std. dev.      .0112387
+75%     .0266789       .0481864
+90%     .0364796       .0500645       Variance       .0001263
+95%     .0500645        .057673       Skewness        1.67511
+99%     .0582648       .0582648       Kurtosis       5.520261
+
+. 
+. * 8.Save the complete dataset after cleaning
+. order area_code area_name state_code state_name avg_employmentFederal avg_emp
+> loymentTotal federal_share
+
+. save "cleaned_data/Q3_State_Federal_Employment_Share_2012.dta", replace
+file cleaned_data/Q3_State_Federal_Employment_Share_2012.dta saved
+
+. export excel using "cleaned_data/Q3_State_Federal_Employment_Share_2012.xlsx"
+> , firstrow(variables) replace
+file cleaned_data/Q3_State_Federal_Employment_Share_2012.xlsx saved
+
+. 
+. * 9. Export Q3 Report (to the "output" folder)
+. 
+. * Obtain the states with the highest proportion and their corresponding value
+> s
+. gsort -federal_share
+
+. local highest_a_code = area_code[1]
+
+. local highest_a_area = area_name[1]
+
+. local highest_s_code = state_code[1]
+
+. local highest_s_area = state_name[1]
+
+. local highest_share = federal_share[1]
+
+. 
+. * Obtain the states with the lowest proportion and their corresponding values
+. gsort federal_share
+
+. local lowest_a_code = area_code[1]
+
+. local lowest_a_area = area_name[1]
+
+. local lowest_s_code = state_code[1]
+
+. local lowest_s_area = state_name[1]
+
+. local lowest_share = federal_share[1]
+
+. 
+. 
+. summarize federal_share, detail
+
+                        federal_share
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     .0107635       .0107635
+ 5%     .0119414       .0108321
+10%     .0126785       .0119414       Obs                  50
+25%     .0155017       .0119467       Sum of wgt.          50
+
+50%     .0194494                      Mean           .0229299
+                        Largest       Std. dev.      .0112387
+75%     .0266789       .0481864
+90%     .0364796       .0500645       Variance       .0001263
+95%     .0500645        .057673       Skewness        1.67511
+99%     .0582648       .0582648       Kurtosis       5.520261
+
+. local mean_val = r(mean)
+
+. local median_val = r(p50)    // 50th percentile
+
+. local sd_val = r(sd)
+
+. 
+. putexcel set "output/Q3_Analysis_Report_2012.xlsx", replace
+note: file will be replaced when the first putexcel command is issued.
+
+. 
+. putexcel A1 = "Metric", bold
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel B1 = "Federal Share Value", bold
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel C1 = "Area Name", bold
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel D1 = "Area Code", bold
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel E1 = "State Name", bold
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel F1 = "State Code", bold
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. 
+. putexcel A2 = "Highest Federal Share"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel B2 = `highest_share'
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel C2 = "`highest_a_area'"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel D2 = "`highest_a_code'"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel E2 = "`highest_s_area'"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel F2 = "`highest_s_code'"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. 
+. putexcel A3 = "Lowest Federal Share"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel B3 = `lowest_share'
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel C3 = "`lowest_a_area'"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel D3 = "`lowest_a_code'"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel E3 = "`lowest_s_area'"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel F3 = "`lowest_s_code'"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. 
+. putexcel A4 = "Mean"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel B4 = `mean_val'
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. 
+. putexcel A5 = "Median"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel B5 = `median_val'
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. 
+. putexcel A6 = "Standard Deviation"
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. putexcel B6 = `sd_val'
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. 
+. putexcel B2:B6, nformat("0.0000")
+file output/Q3_Analysis_Report_2012.xlsx saved
+
+. 
+. 
+. 
+. 
+. 
+. 
+. **************
+. * Question 4 *
+. **************
 . use "cleaned_data/base_qcew_annual.dta", clear
 
 . 
@@ -169,51 +440,40 @@ end of do-file
 . keep if area_type == "County"
 (7,315 observations deleted)
 
-. keep if industry == "Financial activities" | industry == "Professional and business ser
-> vices"
+. keep if industry == "Financial activities" | industry == "Professional and bu
+> siness services"
 (48,877 observations deleted)
 
 . keep if ownership == "Private"
 (0 observations deleted)
 
 . 
-. keep state_code state_name county_code area_code area_name industry avg_weekly_wage
+. keep state_code state_name county_code area_code area_name industry avg_weekl
+> y_wage
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 2. Filter out missing/zero wages and ensure counties have both industries
 . gen zero_flag = (avg_weekly_wage == 0 | missing(avg_weekly_wage))
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * Grouping by state (state_code) + county (county_code).
+. * Treat all observations (here observations are two) from the same county as 
+> a group.
 . bysort state_code county_code: egen has_zero = max(zero_flag)
 
+. * Mark every row in this county with the following:
+. * has_zero = 1 -> This county has industries with a wage of 0 or missing valu
+> es
+. * has_zero = 0 -> This county has no industries with a salary of 0 or missing
+>  values
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
 . drop if has_zero == 1
 (603 observations deleted)
 
 . drop zero_flag has_zero
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
 . bysort area_code: gen n_industries = _N
-
-. 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
 
 . drop if n_industries != 2
 (4 observations deleted)
@@ -221,10 +481,7 @@ end of do-file
 . drop n_industries
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 3. Reshape and calculate mean
 . replace industry = "fin" if industry == "Financial activities"
 (2,878 real changes made)
 
@@ -232,10 +489,6 @@ end of do-file
 (2,878 real changes made)
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
 . reshape wide avg_weekly_wage, i(area_code) j(industry) string
 (j = fin pbs)
 
@@ -245,35 +498,20 @@ Number of observations            5,756   ->   2,878
 Number of variables                   7   ->   7           
 j variable (2 values)          industry   ->   (dropped)
 xij variables:
-                        avg_weekly_wage   ->   avg_weekly_wagefin avg_weekly_wagepbs
+                        avg_weekly_wage   ->   avg_weekly_wagefin avg_weekly_wa
+> gepbs
 -----------------------------------------------------------------------------
-
-. 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
 
 . gen mean_wage = (avg_weekly_wagefin + avg_weekly_wagepbs) / 2
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * After Q4 reshape:
 . assert avg_weekly_wagefin > 0 & avg_weekly_wagepbs > 0
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
-. order county_code area_code area_name state_code state_name avg_weekly_wagefin avg_week
-> ly_wagepbs mean_wage
-
-. 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
+. * 4. Display top 5 and export
+. order county_code area_code area_name state_code state_name avg_weekly_wagefi
+> n avg_weekly_wagepbs mean_wage
 
 . gsort -mean_wage
 
@@ -320,17 +558,116 @@ end of do-file
      +-------------------------------------------------------------------+
 
 . 
-end of do-file
+. save "cleaned_data/Q4_county_mean_wage_fin_pbs_2012.dta", replace
+file cleaned_data/Q4_county_mean_wage_fin_pbs_2012.dta saved
 
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
+. export excel using "cleaned_data/Q4_county_mean_wage_fin_pbs_2012.xlsx", firs
+> trow(variables) replace
+file cleaned_data/Q4_county_mean_wage_fin_pbs_2012.xlsx saved
 
+. 
+. * 5. Export Q4 Report (to the "output" folder)
+. 
+. * the data in descending order of average wage by the previous step's gsort -
+> mean_wage.
+. * Create a new Excel report file
+. putexcel set "output/Q4_Top5_Counties_Report_2012.xlsx", replace
+note: file will be replaced when the first putexcel command is issued.
+
+. 
+. putexcel A1 = "Rank", bold
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+
+. putexcel B1 = "County Code", bold
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+
+. putexcel C1 = "Area Code", bold
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+
+. putexcel D1 = "County (Area Name)", bold
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+
+. putexcel E1 = "State Code", bold
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+
+. putexcel F1 = "State Name", bold
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+
+. putexcel G1 = "Mean Weekly Wage ($)", bold
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+
+. 
+. * Use the forvalues loop to accurately extract the first 5 rows of data and w
+> rite them into Excel.
+. forvalues i = 1/5 {
+  2.         local current_county_code = county_code[`i']
+  3.         local current_area_code = area_code[`i']
+  4.     local current_county = area_name[`i']
+  5.     local current_state_code = state_code[`i']
+  6.     local current_state = state_name[`i']
+  7.     local current_wage = mean_wage[`i']
+  8. 
+.     * The first row is the header, so the data starts from the (i + 1)th row.
+.     local row = `i' + 1
+  9. 
+.     putexcel A`row' = `i'
+ 10.         putexcel B`row' = "`current_county_code'"
+ 11.         putexcel C`row' = "`current_area_code'"
+ 12.     putexcel D`row' = "`current_county'"
+ 13.     putexcel E`row' = "`current_state_code'"
+ 14.     putexcel F`row' = "`current_state'"
+ 15.     putexcel G`row' = `current_wage', nformat("#,##0.00")
+ 16. }
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+file output/Q4_Top5_Counties_Report_2012.xlsx saved
+
+. 
+. 
+. 
+. 
+. 
+. 
+. 
+. 
+. **************
+. * Question 5 *
+. **************
 . use "cleaned_data/base_qcew_annual.dta", clear
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
 . * 1. Keep relevant state-level industry rows
 . keep if area_type == "State"
 (61,651 observations deleted)
@@ -339,7 +676,8 @@ end of do-file
 (853 observations deleted)
 
 . 
-. keep year area_code area_name state_code state_name avg_employment avg_annual_pay
+. keep year area_code area_name state_code state_name avg_employment avg_annual
+> _pay
 
 . 
 . rename avg_employment edhealth_emp
@@ -350,10 +688,7 @@ end of do-file
 . isid state_name
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 2. Merge with base population data
 . merge 1:1 state_name using "cleaned_data/base_population.dta"
 (variable state_name was str20, now str21 to accommodate using data's values)
 
@@ -372,55 +707,6 @@ end of do-file
 ------------------------+-----------------------------------
                   Total |         51      100.00
 
-. 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
-. assert _merge == 3
-
-. 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
-. keep if _merge == 3
-(0 observations deleted)
-
-. drop _merge
-
-. 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
-. keep if _merge == 3
-_merge not found
-r(111);
-
-end of do-file
-
-r(111);
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
-. merge 1:1 state_name using "cleaned_data/base_population.dta"
-
-    Result                      Number of obs
-    -----------------------------------------
-    Not matched                             0
-    Matched                                51  (_merge==3)
-    -----------------------------------------
-
-. tab _merge
-
-   Matching result from |
-                  merge |      Freq.     Percent        Cum.
-------------------------+-----------------------------------
-            Matched (3) |         51      100.00      100.00
-------------------------+-----------------------------------
-                  Total |         51      100.00
-
 . assert _merge == 3
 
 . 
@@ -430,15 +716,14 @@ r(111);
 . drop _merge
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. 
+. * 3. Create employment share
 . gen edhealth_pop_share = edhealth_emp / pop2012
 
 . gen edhealth_pop_share_pct = 100 * edhealth_pop_share
 
-. summarize edhealth_emp edhealth_pay pop2012 edhealth_pop_share edhealth_pop_share_pct
+. summarize edhealth_emp edhealth_pay pop2012 edhealth_pop_share edhealth_pop_s
+> hare_pct
 
     Variable |        Obs        Mean    Std. dev.       Min        Max
 -------------+---------------------------------------------------------
@@ -449,24 +734,75 @@ edhealth_p~e |         51    .0654153    .0195999   .0385981   .1611139
 edhealth_p~t |         51    6.541528    1.959987   3.859809   16.11139
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 4. Create Graph
+. 
+. * Flag DC for separate plotting
 . gen is_dc = (area_name == "District of Columbia")
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * Generate label positioning variable to reduce overlap:
+. * Place labels to the right by default (3 = right),
+. * adjust specific crowded points to other clock positions.
 . gen mlabpos = 3
 
+. replace mlabpos = 9  if state_name == "California"
+(1 real change made)
+
+. replace mlabpos = 3 if state_name == "Nevada"
+(0 real changes made)
+
+. replace mlabpos = 6  if state_name == "Idaho"
+(1 real change made)
+
+. replace mlabpos = 12 if state_name == "Massachusetts"
+(1 real change made)
+
+. replace mlabpos = 6  if state_name == "Arkansas"
+(1 real change made)
+
+. replace mlabpos = 9  if state_name == "Hawaii"
+(1 real change made)
+
+. replace mlabpos = 1  if state_name == "New Hampshire"
+(1 real change made)
+
+. replace mlabpos = 6  if state_name == "South Carolina"
+(1 real change made)
+
+. replace mlabpos = 12 if state_name == "Connecticut"
+(1 real change made)
+
+. replace mlabpos = 12  if state_name == "Montana"
+(1 real change made)
+
+. replace mlabpos = 12 if state_name == "Delaware"
+(1 real change made)
+
+. replace mlabpos = 6  if state_name == "Wyoming"
+(1 real change made)
+
+. replace mlabpos = 9  if state_name == "Mississippi"
+(1 real change made)
+
+. replace mlabpos = 12 if state_name == "New York"
+(1 real change made)
+
+. replace mlabpos = 6 if state_name == "New Mexico"
+(1 real change made)
+
+. replace mlabpos = 8 if state_name == "Colorado"
+(1 real change made)
+
+. replace mlabpos = 10 if state_name == "Kansas"
+(1 real change made)
+
+. replace mlabpos = 2 if state_name == "Oklahoma"
+(1 real change made)
+
+. replace mlabpos = 6 if state_name == "Oregon"
+(1 real change made)
+
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
 . twoway ///
 >     (scatter edhealth_pay edhealth_pop_share_pct if is_dc == 0, ///
 >         msymbol(circle) mcolor(navy) msize(tiny) ///
@@ -480,36 +816,61 @@ end of do-file
 >         lcolor(navy) lpattern(solid) lwidth(medthin)) ///
 >     (lfit edhealth_pay edhealth_pop_share_pct, ///
 >         lcolor(cranberry) lpattern(dash) lwidth(medthin)), ///
->     xtitle("Share of population employed in Education and health services (%)", size(sm
+>     xtitle("Share of population employed in Education and health services (%)
+> ", size(small)) ///
+>     ytitle("Annual average pay in Education and health services ($)", size(sm
 > all)) ///
->     ytitle("Annual average pay in Education and health services ($)", size(small)) ///
->     title("State-level relationship: Education & health services", size(medium)) ///
+>     title("State-level relationship: Education & health services", size(mediu
+> m)) ///
 >     subtitle("2012", size(small)) ///
->     legend(order(1 "States" 2 "District of Columbia" 3 "Fit: excl. DC" 4 "Fit: all obs.
-> ") ///
+>     legend(order(1 "States" 2 "District of Columbia" 3 "Fit: excl. DC" 4 "Fit
+> : all obs.") ///
 >         size(vsmall) rows(1) position(6)) ///
 >     graphregion(color(white) margin(r=13)) ///
 >     plotregion(color(white)) ///
->     note("Note: DC is highlighted as an outlier due to its exceptionally high employmen
-> t share in Education and health services (private sector only).", ///
+>     note("Note: DC is highlighted as an outlier due to its exceptionally high
+>  employment share in Education and health services (private sector only).", /
+> //
 >          size(vsmall) color(gs6)) ///
 >     name(edhealth_scatter, replace)
 
 . 
-end of do-file
+. * 5. Export Q5 Graph (to the "output" folder)
+. graph export "output/Q5_state_edhealth_pay_popshare_2012.png", replace width(
+> 2000)
+file output/Q5_state_edhealth_pay_popshare_2012.png written in PNG format
 
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
+. 
+. * 6. Export Q5 Cleaned_data (to the "output" folder)
+. drop is_dc mlabpos
 
+. order year area_code area_name state_code state_name edhealth_emp edhealth_pa
+> y pop2012 edhealth_pop_share edhealth_pop_share_pct
+
+. save "cleaned_data/Q5_state_edhealth_pay_popshare_2012.dta", replace
+file cleaned_data/Q5_state_edhealth_pay_popshare_2012.dta saved
+
+. export excel using "cleaned_data/Q5_state_edhealth_pay_popshare_2012.xlsx", f
+> irstrow(variables) replace
+file cleaned_data/Q5_state_edhealth_pay_popshare_2012.xlsx saved
+
+. 
+. 
+. 
+. **************
+. * Question 6 *
+. **************
+. 
+. 
+. * Uses the dataset saved at the end of Question 5
+. * (run Question 5 first)
 . use "cleaned_data/Q5_state_edhealth_pay_popshare_2012.dta", clear
 
 . 
 . gen ln_pop2012 = ln(pop2012)
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 1. Simple regression
 . reg edhealth_pay edhealth_pop_share_pct, vce(robust)
 
 Linear regression                               Number of obs     =         51
@@ -518,19 +879,21 @@ Linear regression                               Number of obs     =         51
                                                 R-squared         =     0.2051
                                                 Root MSE          =     4087.6
 
-----------------------------------------------------------------------------------------
-                       |               Robust
-          edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
------------------------+----------------------------------------------------------------
-edhealth_pop_share_pct |   1048.657   315.7442     3.32   0.002     414.1454    1683.169
-                 _cons |   36834.08   2167.887    16.99   0.000     32477.55    41190.61
-----------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+             |               Robust
+edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+edhealth_p~t |   1048.657   315.7442     3.32   0.002     414.1454    1683.169
+       _cons |   36834.08   2167.887    16.99   0.000     32477.55    41190.61
+------------------------------------------------------------------------------
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 2. Multiple regression
+. * Dependent variable: Annual average pay in the Education and Health Services
+>  industry
+. * Core independent variable: Proportion of employment in this industry to the
+>  state's population
+. * Control variable: State population size
 . reg edhealth_pay edhealth_pop_share_pct ln_pop2012, vce(robust)
 
 Linear regression                               Number of obs     =         51
@@ -539,20 +902,17 @@ Linear regression                               Number of obs     =         51
                                                 R-squared         =     0.3181
                                                 Root MSE          =       3825
 
-----------------------------------------------------------------------------------------
-                       |               Robust
-          edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
------------------------+----------------------------------------------------------------
-edhealth_pop_share_pct |    1282.83   326.1224     3.93   0.000     627.1171    1938.543
-            ln_pop2012 |   1531.104   587.1523     2.61   0.012     350.5557    2711.653
-                 _cons |   12134.11   9814.121     1.24   0.222    -7598.499    31866.73
-----------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+             |               Robust
+edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+edhealth_p~t |    1282.83   326.1224     3.93   0.000     627.1171    1938.543
+  ln_pop2012 |   1531.104   587.1523     2.61   0.012     350.5557    2711.653
+       _cons |   12134.11   9814.121     1.24   0.222    -7598.499    31866.73
+------------------------------------------------------------------------------
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 3. Interaction effect (add pct_x_lnpop)
 . gen pct_x_lnpop = edhealth_pop_share_pct * ln_pop2012
 
 . reg edhealth_pay edhealth_pop_share_pct ln_pop2012 pct_x_lnpop, vce(robust)
@@ -563,21 +923,21 @@ Linear regression                               Number of obs     =         51
                                                 R-squared         =     0.3399
                                                 Root MSE          =     3803.3
 
-----------------------------------------------------------------------------------------
-                       |               Robust
-          edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
------------------------+----------------------------------------------------------------
-edhealth_pop_share_pct |   5674.331    3644.56     1.56   0.126    -1657.577    13006.24
-            ln_pop2012 |   3575.024   1893.085     1.89   0.065    -233.3716    7383.419
-           pct_x_lnpop |  -307.9315   263.7982    -1.17   0.249     -838.625    222.7619
-                 _cons |  -17217.93   27021.08    -0.64   0.527    -71577.33    37141.46
-----------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+             |               Robust
+edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+edhealth_p~t |   5674.331    3644.56     1.56   0.126    -1657.577    13006.24
+  ln_pop2012 |   3575.024   1893.085     1.89   0.065    -233.3716    7383.419
+ pct_x_lnpop |  -307.9315   263.7982    -1.17   0.249     -838.625    222.7619
+       _cons |  -17217.93   27021.08    -0.64   0.527    -71577.33    37141.46
+------------------------------------------------------------------------------
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. ** 3.1
+. * Centering leaves the interaction coefficient and R2 unchanged (Table A, col
+> s 3-4);
+. * it makes each main effect the slope at the other variable's sample mean.
 . summ edhealth_pop_share_pct
 
     Variable |        Obs        Mean    Std. dev.       Min        Max
@@ -598,7 +958,8 @@ edhealth_p~t |         51    6.541528    1.959987   3.859809   16.11139
 . 
 . gen cpct_x_clnpop2012 = c_edhealth_pop_pct * c_lnpop2012
 
-. reg edhealth_pay c_edhealth_pop_pct c_lnpop2012 cpct_x_clnpop2012, vce(robust)
+. reg edhealth_pay c_edhealth_pop_pct c_lnpop2012 cpct_x_clnpop2012, vce(robust
+> )
 
 Linear regression                               Number of obs     =         51
                                                 F(3, 47)          =      11.04
@@ -606,21 +967,24 @@ Linear regression                               Number of obs     =         51
                                                 R-squared         =     0.3399
                                                 Root MSE          =     3803.3
 
-------------------------------------------------------------------------------------
-                   |               Robust
-      edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
--------------------+----------------------------------------------------------------
-c_edhealth_pop_pct |   1014.822   438.2003     2.32   0.025     133.2772    1896.368
-       c_lnpop2012 |   1560.681   576.8292     2.71   0.009     400.2504    2721.112
- cpct_x_clnpop2012 |  -307.9317   263.7983    -1.17   0.249    -838.6254    222.7621
-             _cons |   43516.53   570.6903    76.25   0.000     42368.45    44664.61
-------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+             |               Robust
+edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+c_edhealth~t |   1014.822   438.2003     2.32   0.025     133.2772    1896.368
+ c_lnpop2012 |   1560.681   576.8292     2.71   0.009     400.2504    2721.112
+cpct_x_~2012 |  -307.9317   263.7983    -1.17   0.249    -838.6254    222.7621
+       _cons |   43516.53   570.6903    76.25   0.000     42368.45    44664.61
+------------------------------------------------------------------------------
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 4. Robustness check: Exclude DC
+. * DC is an extreme outlier (employment share ~16% vs. next highest ~10%).
+. * Re-estimate the simple and multiple models without DC, whose leverage in th
+> e
+. * simple model is 0.50 (next highest 0.07); without it the simple slope is no
+> t significant.
+. 
 . preserve
 
 . drop if area_name == "District of Columbia"
@@ -639,13 +1003,13 @@ Linear regression                               Number of obs     =         50
                                                 R-squared         =     0.0570
                                                 Root MSE          =     4066.3
 
-----------------------------------------------------------------------------------------
-                       |               Robust
-          edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
------------------------+----------------------------------------------------------------
-edhealth_pop_share_pct |   697.3795    503.897     1.38   0.173    -315.7733    1710.532
-                 _cons |   38993.73   3242.785    12.02   0.000     32473.67    45513.79
-----------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+             |               Robust
+edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+edhealth_p~t |   697.3795    503.897     1.38   0.173    -315.7733    1710.532
+       _cons |   38993.73   3242.785    12.02   0.000     32473.67    45513.79
+------------------------------------------------------------------------------
 
 . 
 . display as text _newline "--- Multiple regression (excl. DC, N=50) ---"
@@ -660,40 +1024,105 @@ Linear regression                               Number of obs     =         50
                                                 R-squared         =     0.2039
                                                 Root MSE          =     3775.8
 
-----------------------------------------------------------------------------------------
-                       |               Robust
-          edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
------------------------+----------------------------------------------------------------
-edhealth_pop_share_pct |   891.1141   455.8183     1.95   0.057      -25.874    1808.102
-            ln_pop2012 |   1580.647   563.9302     2.80   0.007     446.1657    2715.128
-                 _cons |   13789.73   9749.951     1.41   0.164    -5824.639     33404.1
-----------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+             |               Robust
+edhealth_pay | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+edhealth_p~t |   891.1141   455.8183     1.95   0.057      -25.874    1808.102
+  ln_pop2012 |   1580.647   563.9302     2.80   0.007     446.1657    2715.128
+       _cons |   13789.73   9749.951     1.41   0.164    -5824.639     33404.1
+------------------------------------------------------------------------------
 
 . 
 . restore
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
-. use "cleaned_data/base_qcew_annual.dta", clear
+. * 5. Export Q6 Regression Results (to the "output" folder)
+. eststo clear
 
 . 
-end of do-file
+. * Store main models (all 51 observations)
+. quietly reg edhealth_pay edhealth_pop_share_pct, vce(robust)
 
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
+. eststo M1
 
-. merge 1:1 area_code area_name using "cleaned_data/base_qcew_q1.dta"
-variables area_code area_name do not uniquely identify observations in the master data
-r(459);
+. 
+. quietly reg edhealth_pay edhealth_pop_share_pct ln_pop2012, vce(robust)
 
-end of do-file
+. eststo M2
 
-r(459);
+. 
+. quietly reg edhealth_pay edhealth_pop_share_pct ln_pop2012 pct_x_lnpop, vce(r
+> obust)
 
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
+. eststo M3
 
+. 
+. quietly reg edhealth_pay c_edhealth_pop_pct c_lnpop2012 cpct_x_clnpop2012, vc
+> e(robust)
+
+. eststo M4
+
+. 
+. * Store robustness models (excluding DC, 50 observations)
+. preserve
+
+. drop if area_name == "District of Columbia"
+(1 observation deleted)
+
+. 
+. quietly reg edhealth_pay edhealth_pop_share_pct, vce(robust)
+
+. eststo M5
+
+. 
+. quietly reg edhealth_pay edhealth_pop_share_pct ln_pop2012, vce(robust)
+
+. eststo M6
+
+. 
+. restore
+
+. 
+. * Table A: main results
+. esttab M1 M2 M3 M4 using "output/Q6_Regression_Results.rtf", replace ///
+>     title("Table A: Regression Results -- All States plus DC (N=51)") ///
+>     mtitles("Simple" "Multiple" "Interaction" "Centered Interaction") ///
+>     b(2) se(2) nonotes ///
+>     star(* 0.10 ** 0.05 *** 0.01) ///
+>     r2(3) rename(cpct_x_clnpop2012 pct_x_lnpop) ///
+>     compress coeflabels(edhealth_pop_share_pct "Ed/health share (%)" ln_pop20
+> 12 "ln(population)" pct_x_lnpop "Share x ln(pop)" c_edhealth_pop_pct "Share, 
+> centered" c_lnpop2012 "ln(pop), centered" _cons "Constant") ///
+>     addnotes("Robust standard errors in parentheses. *** p<0.01, ** p<0.05, *
+>  p<0.1")
+(output written to output/Q6_Regression_Results.rtf)
+
+. 
+. * Table B: robustness check excluding DC
+. esttab M5 M6 using "output/Q6_Robustness_ExclDC.rtf", replace ///
+>     title("Table B: Robustness Check -- Excluding DC (N=50)") ///
+>     mtitles("Simple (excl. DC)" "Multiple (excl. DC)") ///
+>     b(2) se(2) nonotes ///
+>     star(* 0.10 ** 0.05 *** 0.01) ///
+>     r2(3) ///
+>     compress coeflabels(edhealth_pop_share_pct "Ed/health share (%)" ln_pop20
+> 12 "ln(population)" _cons "Constant") ///
+>     addnotes("Robust standard errors in parentheses. *** p<0.01, ** p<0.05, *
+>  p<0.1" ///
+>              "DC excluded as an extreme outlier (employment share ~16%).")
+(output written to output/Q6_Robustness_ExclDC.rtf)
+
+. 
+. 
+. 
+. 
+. 
+. 
+. 
+. **************
+. * Question 7 *
+. **************
 . 
 . use "cleaned_data/base_qcew_annual.dta", clear
 
@@ -717,10 +1146,8 @@ r(459);
 . keep county_code area_code year quarter area_name state_name annual_wages
 
 . 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
+. * 2. Merge with base Q1 data
+. * (Q1 wages was annualized in dataset preparation 1.3)
 . merge 1:1 area_code area_name using "cleaned_data/base_qcew_q1.dta"
 
     Result                      Number of obs
@@ -738,11 +1165,6 @@ end of do-file
 ------------------------+-----------------------------------
                   Total |         14      100.00
 
-. 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
 . assert _merge == 3
 
 . 
@@ -752,25 +1174,166 @@ end of do-file
 . drop _merge
 
 . 
-end of do-file
+. * 3. Compare and output
+. gen q1_gt_annual = (q1_wages_annualized > annual_wages) & !missing(q1_wages_a
+> nnualized) & !missing(annual_wages)
 
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
+. list county_code area_code area_name q1_wages_annualized annual_wages if q1_g
+> t_annual == 1, noobs clean
 
-. gen q1_gt_annual = (q1_wages_annualized > annual_wages) & !missing(q1_wages_annualized)
->  & !missing(annual_wages)
-
-. 
-end of do-file
-
-. do "/var/folders/c2/tvgs1xt52m12931n5trv57d40000gn/T//SD13494.000000"
-
-. list county_code area_code area_name q1_wages_annualized annual_wages if q1_gt_annual =
-> = 1, noobs clean
-
-    county~e   area_c~e                         area_name   q1_wag~d   annual_~s  
-          17      25017   Middlesex County, Massachusetts   6.16e+10   5.962e+10  
-          25      25025     Suffolk County, Massachusetts   5.21e+10   4.808e+10  
+    county~e   area_c~e                         area_name   q1_wag~d   annual_~
+> s  
+          17      25017   Middlesex County, Massachusetts   6.16e+10   5.962e+1
+> 0  
+          25      25025     Suffolk County, Massachusetts   5.21e+10   4.808e+1
+> 0  
 
 . 
-end of do-file
+. * 4. Export Q7 Cleaned_data (to the "output" folder)
+. order year quarter county_code area_code area_name state_name annual_wages  q
+> 1_wages q1_wages_annualized q1_gt_annual
 
+. save "cleaned_data/Q7_Massachusetts_Q1_vs_Annual_Wages_2012.dta", replace
+file cleaned_data/Q7_Massachusetts_Q1_vs_Annual_Wages_2012.dta saved
+
+. export excel using "cleaned_data/Q7_Massachusetts_Q1_vs_Annual_Wages_2012.xls
+> x", firstrow(variables) replace
+file cleaned_data/Q7_Massachusetts_Q1_vs_Annual_Wages_2012.xlsx saved
+
+. 
+. * 5. Export Q7 Report (to the "output" folder)
+. * Count the number of counties that meet the condition of "annualized Q1 > fu
+> ll year"
+. 
+. 
+. **************************** Important Note: ********************************
+> ***
+. 
+. * This section(Q7-5)of code must be selected and run as a whole!
+. * Reason: The local macro (num_counties) is only valid within the same execut
+> ion.
+. * If run in segments, the second code block will not be able to read the valu
+> e of num_counties,
+. * resulting in an error (invalid name) for the if `num_counties' > 0 statemen
+> t.
+. 
+. count if q1_gt_annual == 1
+  2
+
+. local num_counties = r(N)
+
+. 
+. putexcel set "output/Q7_MA_Counties_Report_2012.xlsx", replace
+note: file will be replaced when the first putexcel command is issued.
+
+. 
+. putexcel A1 = "Year", bold
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+
+. putexcel B1 = "Quarter", bold
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+
+. putexcel C1 = "County Code", bold
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+
+. putexcel D1 = "Area Code", bold
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+
+. putexcel E1 = "County (Area Name)", bold
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+
+. putexcel F1 = "Q1 Wages ($)", bold
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+
+. putexcel G1 = "Annualized Q1 Wages ($)", bold
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+
+. putexcel H1 = "Annual Total Wages ($)", bold
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+
+. 
+. if `num_counties' > 0 {
+.     * Arrange the counties that meet the conditions (with a value of 1) at to
+> p and sort them in descending order of salary.
+.     gsort -q1_gt_annual -q1_wages_annualized
+. 
+.     * Using a loop, only extract the first few counties that meet the criteri
+> a.
+.     forvalues i = 1/`num_counties' {
+  2.                 local current_year = year[`i']
+  3.                 local current_quarter = quarter[`i']
+  4.                 local current_c_code = county_code[`i']
+  5.         local current_a_code = area_code[`i']
+  6.         local current_county = area_name[`i']
+  7.         local q1_wage_val = q1_wages[`i']
+  8.         local ann_q1_val = q1_wages_annualized[`i']
+  9.         local ann_total_val = annual_wages[`i']
+ 10. 
+.         * Start writing data from the second row (the first row is the header
+> )
+.         local row = `i' + 1
+ 11. 
+.                 putexcel A`row' = "`current_year'"
+ 12.                 putexcel B`row' = "`current_quarter'"
+ 13.         putexcel C`row' = "`current_c_code'"
+ 14.                 putexcel D`row' = "`current_a_code'"
+ 15.         putexcel E`row' = "`current_county'"
+ 16. 
+.         * With thousands separator, no decimal retention
+.         putexcel F`row' = `q1_wage_val', nformat("#,##0")
+ 17.         putexcel G`row' = `ann_q1_val', nformat("#,##0")
+ 18.         putexcel H`row' = `ann_total_val', nformat("#,##0")
+ 19.     }
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+file output/Q7_MA_Counties_Report_2012.xlsx saved
+. }
+
+. else {
+.     * If no counties that meet the criteria are found, write a prompt message
+> .
+.     putexcel A2 = "None of the counties meet the criteria."
+. }
+
+. 
+. *****************************************************************************
+> ***
+. 
+. 
+. 
+. 
+. 
+. 
+. * Data Structure Notes
+. * These are observations about the data that affect code interpretation:
+. 
+. 
+. * In the QCEW high-level county files, supersectors like "Education and healt
+> h services", "Financial activities", and "Professional and business services"
+>  are only reported under Own=5 (Private), not under Own=0 (Total Covered). Th
+> is means Q4 and Q5 do not need an explicit ownership filter -- there is only 
+> one row per area per supersector. However, this also means Q5's "share of pop
+> ulation employed" calculation uses only private employment, not total employm
+> ent in the sector.
+. 
+. * County name uniqueness: QCEW area_name values for counties include the stat
+> e name (e.g., "Franklin County, Massachusetts"), making them unique across th
+> e dataset. This is why bysort area_name works in Q4 despite not being best pr
+> actice.
+. 
+. 
+. 
+end of do-file
